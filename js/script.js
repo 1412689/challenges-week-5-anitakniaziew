@@ -54,15 +54,14 @@ function switchChannel(channelObject) {
 function star() {
     // Toggling star
     // #7 replace image with icon
-    $('#chat h1 i').toggleClass('fas');
-    $('#chat h1 i').toggleClass('far');
+    $('#chat h1 i').toggleClass('fas far');
+
 
     // #7 toggle star also in data model
     currentChannel.starred = !currentChannel.starred;
 
     // #7 toggle star also in list
-    $('#channels li:contains(' + currentChannel.name + ') .fa').removeClass('fas far');
-    $('#channels li:contains(' + currentChannel.name + ') .fa').addClass(currentChannel.starred ? 'fas' : 'far');
+    $('#channels li.selected i.fa-star').toggleClass("fas far");
 }
 
 /**
@@ -79,7 +78,10 @@ function selectTab(tabId) {
  * toggle (show/hide) the emojis menu
  */
 function toggleEmojis() {
-    $('#emojis').toggle(); // #toggle
+    var emojis = require('emojis-list');
+    console.log(emojis[0]);
+    $('#emojis').empty();
+    $('#emojis').toggle().append(emojis); // #toggle
 }
 
 /**
@@ -107,10 +109,17 @@ function sendMessage() {
 
     // #8 let's now use the real message #input
     var message = new Message($('#message').val());
-    console.log("New message:", message);
 
-    // #8 convenient message append with jQuery:
-    $('#messages').append(createMessageElement(message));
+    // checking if sended message is empty
+    if ($('#message').val() !== "") {
+        console.log("New message:", message);
+
+        // #8 convenient message append with jQuery:
+        $('#messages').append(createMessageElement(message));
+    } else {
+        alert("Please, enter your message"); //if message is empty an alert appears
+        return false; 
+    };
 
     // #8 messages will scroll to a certain point if we apply a certain height, in this case the overall scrollHeight of the messages-div that increases with every message;
     // it would also scroll to the bottom when using a very high number (e.g. 1000000000);
@@ -118,6 +127,9 @@ function sendMessage() {
 
     // #8 clear the message input
     $('#message').val('');
+
+    currentChannel.messages.push(message);
+    currentChannel.messageCount += 1;
 }
 
 /**
@@ -140,21 +152,49 @@ function createMessageElement(messageObject) {
         messageObject.createdOn.toLocaleString() +
         '<em>' + expiresIn+ ' min. left</em></h3>' +
         '<p>' + messageObject.text + '</p>' +
-        '<button>+5 min.</button>' +
+        '<button class="accent">+5 min.</button>' +
         '</div>';
 }
 
+function compareCreateDate(date1, date2) {
+    $("ul").empty();
+    return date2.createdOn-date1.createdOn;
+}
 
-function listChannels() {
+function compareCount(count1, count2) {
+    $("ul").empty();
+    return (count2.messageCount-count1.messageCount);
+}
+
+function compareStars(star1, star2) {
+    $("ul").empty();
+    if (star1.starred === true) {
+        return 0;
+    } else {
+        return 1;
+    };
+}
+
+function listChannels(criterion) {
     // #8 channel onload
     //$('#channels ul').append("<li>New Channel</li>")
 
+    // sort channels
+    switch (criterion) {
+        case "star":
+            channels.sort(compareStars);
+            break;
+        case "count":
+            channels.sort(compareCount);
+            break;
+        default:
+            channels.sort(compareCreateDate);
+    };
+    
     // #8 five new channels
-    $('#channels ul').append(createChannelElement(yummy));
-    $('#channels ul').append(createChannelElement(sevencontinents));
-    $('#channels ul').append(createChannelElement(killerapp));
-    $('#channels ul').append(createChannelElement(firstpersononmars));
-    $('#channels ul').append(createChannelElement(octoberfest));
+    for (i = 0; i < channels.length; i++) {
+        $('#channels ul').append(createChannelElement(channels[i]));
+    };
 }
 
 /**
@@ -174,7 +214,9 @@ function createChannelElement(channelObject) {
      */
 
     // create a channel
-    var channel = $('<li>').text(channelObject.name);
+    var channel = $('<li>').text(channelObject.name).click(function(){
+        switchChannel(channelObject);
+    });
 
     // create and append channel meta
     var meta = $('<span>').addClass('channel-meta').appendTo(channel);
@@ -192,4 +234,45 @@ function createChannelElement(channelObject) {
 
     // return the complete channel
     return channel;
+}
+
+function addChannel() {
+    $('#right-app-bar').hide();
+    $('#createChannelForm').show();
+    $('#send').hide();
+    $('#create').show();
+}
+
+function restoreChannel() {
+    $('#newChannel').val('');
+    $('#right-app-bar').show();
+    $('#createChannelForm').hide();
+    $('#send').show();
+    $('#create').hide();
+}
+
+function createChannel() {
+    var messageText = $('#message').val()
+    var isMessageValid = messageText !== "";
+    var channelName = $('#newChannel').val();
+    var isChannelNameValid =  channelName !== "" && channelName.charAt(0) === "#" && !channelName.includes(" ");
+    if (isMessageValid && isChannelNameValid) {
+        var channel = new Channel(channelName);
+        var message = new Message(messageText);
+        currentChannel = channel;
+        sendMessage();
+        switchChannel(channel);
+        restoreChannel();
+
+    }
+}
+
+function Channel(channelName) {
+    this.name = channelName;
+    this.createdOn = new Date();
+    this.createdBy = currentLocation.what3words;
+    this.starred = false;
+    this.expiresIn = 100;
+    this.messageCount = 999;
+    this.messages = [];
 }
